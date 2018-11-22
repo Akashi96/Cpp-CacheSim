@@ -1,0 +1,17 @@
+==This is a simple tracefile for testing purposes
+ L 0,8
+ L 80,8
+ L 100,6
+ L 0,8
+ S 180,5
+ L 100,2
+ L 80,8
+ M 180,6
+ L 100,8
+ S 100,5
+ S 180,8
+ L 80,8
+ M 0,8
+ M 0,4
+ L 280,4
+ M 80,8
