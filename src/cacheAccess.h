@@ -14,8 +14,10 @@
 #include "cacheStructure.h"
 #include "cacheconf.h"
 
-void writeOnCache(unsigned int, unsigned long int, std::vector <std::vector <cacheEntry> >, CacheResponse*, ConfigInfo);
-void readFromCache(unsigned int, unsigned long int, std::vector <std::vector <cacheEntry> >, CacheResponse*, ConfigInfo);
+// void writeOnCache(unsigned int, unsigned long int, std::vector <std::vector <cacheEntry> >, CacheResponse*, ConfigInfo);
+// void readFromCache(unsigned int, unsigned long int, std::vector <std::vector <cacheEntry> >, CacheResponse*, ConfigInfo);
+void writeOnCache(unsigned int, unsigned long int, std::vector <cacheEntry>&, CacheResponse*, ConfigInfo);
+void readFromCache(unsigned int, unsigned long int, std::vector <cacheEntry>&, CacheResponse*, ConfigInfo);
 
 
 #endif //CACHEACCESS

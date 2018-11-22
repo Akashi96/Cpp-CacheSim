@@ -48,27 +48,43 @@ CacheController::CacheController(ConfigInfo config, char* traceFile)
     // Print Cache
     std::cout << "Cache Created\n";
     std::cout << "Cache consists of " << cache.size() << " sets\n";
-    int i = 0;
+	int i = 0;
     for(auto itr = cache.begin(); itr != cache.end(); itr++)
     {   
-        std::cout << "Index:" << i << std::endl;
+        std::cout << "Index:\tV  D  Tag\tV  D  Tag\tV  D  Tag\t" << std::endl;
         int set = 1;
-        std::cout << "Set\t" << "V " << "D " << "Tag \n";
+        // std::cout << "Set\t" << "V " << "D " << "Tag \n";
+		std::cout << i << "\t";
         for(auto i = itr -> begin(); i != itr -> end(); i++)
         {
-            std::cout << set << "\t" << i -> first.first << " " 
-                      << i -> first.second << " " << i -> second << std::endl;
+            std::cout << i -> first.first << "  " 
+                      << i -> first.second << "  " << i -> second << "\t\t";
             set++;
         }
         i++;
+		std::cout << "\n\n";
     }
+	    // int i = 0;
+    // for(auto itr = cache.begin(); itr != cache.end(); itr++)
+    // {   
+    //     std::cout << "Index:" << i << std::endl;
+    //     int set = 1;
+    //     std::cout << "Set\t" << "V " << "D " << "Tag \n";
+    //     for(auto i = itr -> begin(); i != itr -> end(); i++)
+    //     {
+    //         std::cout << set << "\t" << i -> first.first << " " 
+    //                   << i -> first.second << " " << i -> second << std::endl;
+    //         set++;
+    //     }
+    //     i++;
+    // }
 }
 
 CacheController::AddressInfo CacheController::getAddressInfo(unsigned long int address)
 {	
 	AddressInfo ai;
 	
-	// std::cout << "address = " << address << std::endl;
+	std::cout << "address = " << address << std::endl;
 
 	ai.tag = address >> (numByteOffsetBits + numIndexBits);
 	std::cout << "tag = " << ai.tag << std::endl;
@@ -78,7 +94,6 @@ CacheController::AddressInfo CacheController::getAddressInfo(unsigned long int a
 
 	ai.setIndex = (address % offset) % (static_cast<unsigned long int>(std::pow(2, static_cast<double>(numIndexBits))));
 	std::cout << "index = " << ai.setIndex << std::endl;
-	std::cout << std::endl;
 	return ai;
 }
 
@@ -88,9 +103,19 @@ void CacheController::cacheAccess(CacheResponse* response, bool isWrite, unsigne
 
 	// Check if the instruction is a read or write instruction
 	if(isWrite)
-		writeOnCache(ai.setIndex, ai.tag, cache, response, config);
+		writeOnCache(ai.setIndex, ai.tag, cache.at(ai.setIndex), response, config);
 	else
-		readFromCache(ai.setIndex, ai.tag, cache, response, config);
+		readFromCache(ai.setIndex, ai.tag, cache.at(ai.setIndex), response, config);
+	
+	globalCycles += response -> cycles;
+	
+	if(response -> hit == 0)
+		globalMisses++;
+	else
+		globalHits++;
+	
+	if(response -> eviction != 0)
+		globalEvictions++;
 }
 
 /*
@@ -163,6 +188,25 @@ void CacheController::runTracefile()
 		}
 		outfile << std::endl;
 	}
+
+	// Print Cache to see changes in the cache.
+	std::cout << "Cache consists of " << cache.size() << " sets\n";
+	int i = 0;
+    for(auto itr = cache.begin(); itr != cache.end(); itr++)
+    {   
+        std::cout << "Index:\tV  D  Tag\tV  D  Tag\tV  D  Tag\t" << std::endl;
+        int set = 1;
+		std::cout << i << "\t";
+       
+	    for(auto i = itr -> begin(); i != itr -> end(); i++)
+        {
+            std::cout << i -> first.first << "  " 
+                      << i -> first.second << "  " << i -> second << "\t\t";
+            set++;
+        }
+        i++;
+		std::cout << "\n\n";
+    }
 	// add the final cache statistics
 	outfile << "Hits: " << globalHits << " Misses: " << globalMisses << " Evictions: " << globalEvictions << std::endl;
 	outfile << "Cycles: " << globalCycles << std::endl;

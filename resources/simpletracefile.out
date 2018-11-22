@@ -1,18 +1,18 @@
-L 0,8 0 hit eviction
-L 80,8 0 hit eviction
-L 100,6 0 hit eviction
-L 0,8 0 hit eviction
-S 180,5 243 miss
-L 100,2 243 miss
+L 0,8 243 miss
 L 80,8 243 miss
-M 180,6 486 miss miss
-L 100,8 243 miss
-S 100,5 243 miss
-S 180,8 243 miss
-L 80,8 243 miss
-M 0,8 486 miss miss
-M 0,4 486 miss miss
-L 280,4 243 miss
-M 80,8 486 miss miss
-Hits: 0 Misses: 0 Evictions: 0
-Cycles: 0
+L 100,6 243 miss
+L 0,8 13 hit
+S 180,5 13 miss eviction
+L 100,2 13 hit
+L 80,8 243 miss eviction
+M 180,6 26 hit hit
+L 100,8 13 hit
+S 100,5 13 hit
+S 180,8 13 hit
+L 80,8 13 hit
+M 0,8 256 miss eviction hit
+M 0,4 26 hit hit
+L 280,4 243 miss eviction
+M 80,8 26 hit hit
+Hits: 13 Misses: 7 Evictions: 4
+Cycles: 1640

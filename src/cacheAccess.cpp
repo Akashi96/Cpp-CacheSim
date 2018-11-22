@@ -15,7 +15,7 @@
 #include "cacheStructure.h"
 #include "cacheAccess.h"
 
-void writeOnCache(unsigned int indexNo, unsigned long int tag, std::vector <std::vector <cacheEntry> >cache,
+void writeOnCache(unsigned int indexNo, unsigned long int tag, std::vector <cacheEntry>& cacheSet,
                      CacheResponse* response, ConfigInfo config)
 {
     std::cout << "The instruction requires write on cache\n";
@@ -24,7 +24,7 @@ void writeOnCache(unsigned int indexNo, unsigned long int tag, std::vector <std:
     
     // The cache will always be accessed for the first time. Add the cache access time to the total cycles
     numberOfCycles += config.cacheAccessCycles;
-    auto cacheSet = cache.at(indexNo);
+    // auto cacheSet = cache.at(indexNo);
     
     for(auto itr = cacheSet.begin(); itr != cacheSet.end(); itr++)
     {// We are at the index where we have to perform write operation, now check every set to find good position to write the data
@@ -158,5 +158,102 @@ void writeOnCache(unsigned int indexNo, unsigned long int tag, std::vector <std:
         }
     }
     response -> cycles = numberOfCycles;
-    std::cout << "Number of Cycles: " << response -> cycles << "\n";
+    std::cout << "Number of Cycles: " << response -> cycles << "\n\n";
+
+
+}
+
+void readFromCache(unsigned int indexNo, unsigned long int tag, std::vector <cacheEntry>& cacheSet,
+                     CacheResponse* response, ConfigInfo config)
+{
+    std::cout << "The instruction requires read from cache\n";
+    unsigned int numberOfCycles = 0;
+    int flag = -1;
+    
+    // The cache will always be accessed for the first time. Add the cache access time to the total cycles
+    numberOfCycles += config.cacheAccessCycles;
+    // auto cacheSet = cache.at(indexNo);
+    
+    for(auto itr = cacheSet.begin(); itr != cacheSet.end(); itr++)
+    {// We are at the index where we have to perform write operation, now check every set to find good position to write the data
+       
+        // CHECK FOR VALID BIT
+        if(itr -> first.first == 0)
+        {// If valid bit is 0, simply write on the cache block
+            response -> hit = 0;
+            response -> eviction = 0;
+            response -> dirtyEviction = 0;
+            flag = 0;
+            std::cout << "Hit: " << response -> hit << "\n"
+                      << "Eviction: " << response -> eviction << "\n"
+                      << "Dirty Eviction: " << response -> dirtyEviction << "\n";
+            itr -> first.first = 1;
+            itr -> second = tag;
+            numberOfCycles += config.memoryAccessCycles;
+            
+            if (config.replacementPolicy == ReplacementPolicy::LRU) 
+            {// move the recently written block to the first position of the array
+                cacheEntry block = *itr;
+                cacheSet.erase(itr);
+                cacheSet.emplace(cacheSet.begin(), block);
+            }
+            break;
+        }// end of if(itr -> first.first == 0)
+        
+        // CHECK FOR TAG BITS
+        if(itr -> second == tag && itr -> first.first == 1)
+        {// If valid bit is 1 and we find the matching tag
+            response -> hit = 1;
+            response -> eviction = 0;
+            response -> dirtyEviction = 0;
+            std::cout << "Hit: " << response -> hit << "\n"
+                      << "Eviction: " << response -> eviction << "\n"
+                      << "Dirty Eviction: " << response -> dirtyEviction << "\n";
+            flag = 0;
+            
+            if (config.replacementPolicy == ReplacementPolicy::LRU) 
+            {// move the recently written block to the first position of the array
+                cacheEntry block = *itr;
+                cacheSet.erase(itr);
+                cacheSet.emplace(cacheSet.begin(), block);
+            }
+            break;
+        }
+    }
+
+    if(flag == -1)
+        {// Nothing matched, we need to perform eviction
+            response -> hit = 0;
+            response -> eviction = 1;
+
+            if(config.replacementPolicy == ReplacementPolicy::Random)
+            {   
+                auto itr = cacheSet.begin();
+                std::advance(itr, (rand() % (config.associativity - 1) + 0));
+                numberOfCycles += config.memoryAccessCycles;
+                cacheSet.erase(itr);
+                cacheEntry block;
+                block.first.first = 1;
+                block.first.second = 0;
+                block.second = tag;
+                cacheSet.emplace(itr, block);
+            }
+
+            else // If replacement policy is LRU
+            {   
+                auto itr = std::prev(cacheSet.end());
+                numberOfCycles += config.memoryAccessCycles;
+                cacheSet.erase(itr);
+                cacheEntry block;
+                block.first.first = 1;
+                block.first.second = 0;
+                block.second = tag;
+                cacheSet.emplace(cacheSet.begin(), block);
+            }
+            std::cout << "Hit: " << response -> hit << "\n"
+                      << "Eviction: " << response -> eviction << "\n"
+                      << "Dirty Eviction: " << response -> dirtyEviction << "\n";
+        }
+    response -> cycles = numberOfCycles;
+    std::cout << "Number of Cycles: " << response -> cycles << "\n\n";
 }
