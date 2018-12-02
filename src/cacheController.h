@@ -8,10 +8,13 @@
 
 // PRE-DEFINED LIBRARIES
 #include <string>
+#include <mutex>
+#include <condition_variable>
 
 // USER-DEFINED LIBRARIES
 #include "cacheconf.h"
 #include "cacheStructure.h"
+#include "busOperation.h"
 
 
 // this structure is filled with information about each memory access
@@ -38,20 +41,24 @@ class CacheController
 		unsigned int globalMisses;
 		unsigned int globalEvictions;
 		std::string inputFile, outputFile;
+		int threadId;
         // std::vector <cacheEntry>* cachePtr;
         std::vector <std::vector <cacheEntry> > cache;
 		ConfigInfo config;
+		typedef std::function <void(unsigned int, unsigned long int, std::string)> funcPointer;
+		funcPointer fp;
 
 		// function to allow read or write access to the cache
-		void cacheAccess(CacheResponse*, bool, unsigned long int);
+		void cacheAccess(CacheResponse*, bool, unsigned long int, std::mutex&, std::condition_variable&, bus&);
 		// function that can compute the index and tag matching a specific address
 		AddressInfo getAddressInfo(unsigned long int);
 		// compute the number of clock cycles used to complete a memory access
 		void updateCycles(CacheResponse*, bool);
 
 	public:
-		CacheController(ConfigInfo, char *);
-		void runTracefile();
+		CacheController(ConfigInfo, char *, int);
+		void runTracefile(std::mutex&, std::condition_variable&, bus&);
+		void onBusresponse(unsigned int, unsigned long int, std::string);
 };
 
 #endif //CACHECONTROLLER

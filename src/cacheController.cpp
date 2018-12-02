@@ -9,13 +9,17 @@
 #include <thread>
 #include <regex>
 #include <cmath>
+#include <functional>
 
 // USER-DEFINED LIBRARIES
 #include "cacheController.h"
 #include "cacheStructure.h"
 #include "cacheAccess.h"
+#include "busOperation.h"
 
-CacheController::CacheController(ConfigInfo config, char* traceFile)
+
+
+CacheController::CacheController(ConfigInfo config, char* traceFile, int threadId)
 {
     // store the configuration info in the config object of this class
     this -> config = config;
@@ -33,6 +37,11 @@ CacheController::CacheController(ConfigInfo config, char* traceFile)
     this -> globalHits = 0;
     this -> globalMisses = 0;
     this -> globalEvictions = 0;
+	this -> threadId = threadId;
+
+	// form a function pointer to onBusresponse()
+	funcPointer fp = std::bind(&CacheController::onBusresponse, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+	this -> fp = fp;
 
     // Create Cache
     std::vector <std::vector <cacheEntry> > cache;
@@ -47,37 +56,59 @@ CacheController::CacheController(ConfigInfo config, char* traceFile)
     
     // Print Cache
     std::cout << "Cache Created\n";
-    std::cout << "Cache consists of " << cache.size() << " sets\n";
+    std::cout << "Cache consists of " << cache.size() << " indicies\n";
 	int i = 0;
     for(auto itr = cache.begin(); itr != cache.end(); itr++)
     {   
-        std::cout << "Index:\tV  D  Tag\tV  D  Tag\tV  D  Tag\t" << std::endl;
+        std::cout << "Index:\tV  D  S  Tag\tV  D  S  Tag\tV  D  S  Tag\t" << std::endl;
         int set = 1;
         // std::cout << "Set\t" << "V " << "D " << "Tag \n";
 		std::cout << i << "\t";
         for(auto i = itr -> begin(); i != itr -> end(); i++)
         {
-            std::cout << i -> first.first << "  " 
-                      << i -> first.second << "  " << i -> second << "\t\t";
+            std::cout << i -> first.first.first << "  " 
+                      << i -> first.first.second << "  " << i -> first.second << "  " << i -> second << "\t";
             set++;
         }
         i++;
 		std::cout << "\n\n";
     }
-	    // int i = 0;
-    // for(auto itr = cache.begin(); itr != cache.end(); itr++)
-    // {   
-    //     std::cout << "Index:" << i << std::endl;
-    //     int set = 1;
-    //     std::cout << "Set\t" << "V " << "D " << "Tag \n";
-    //     for(auto i = itr -> begin(); i != itr -> end(); i++)
-    //     {
-    //         std::cout << set << "\t" << i -> first.first << " " 
-    //                   << i -> first.second << " " << i -> second << std::endl;
-    //         set++;
-    //     }
-    //     i++;
-    // }
+}
+
+void CacheController::onBusresponse(unsigned int index, unsigned long int tag, std::string message)
+{
+	std::cout << "In onBusresponse()\n";
+	
+	auto cacheSet = cache.at(index);
+	if(message == "read")
+	{
+		for(auto itr = cacheSet.begin(); itr != cacheSet.end(); itr++)
+		{
+        	if(itr -> second == tag && itr -> first.first.first == 1)
+			{
+				itr -> first.second = 1; // set shared bit to one
+				break;
+			}
+
+		}
+		return;	
+	}
+
+	if(message == "write")
+	{
+		for(auto itr = cacheSet.begin(); itr != cacheSet.end(); itr++)
+		{
+			if(itr -> second == tag && itr -> first.first.first == 1)
+			{
+				itr -> first.first.first = 0; // Put Valid bit to 0
+				cacheEntry block = *itr;
+                cacheSet.erase(itr);
+                cacheSet.emplace(cacheSet.end(), block); // Put the invalid entry at the end of set(For implementation reasons)
+				break;
+			}
+		}
+	}
+	
 }
 
 CacheController::AddressInfo CacheController::getAddressInfo(unsigned long int address)
@@ -92,20 +123,21 @@ CacheController::AddressInfo CacheController::getAddressInfo(unsigned long int a
 	unsigned long int offset = static_cast<unsigned long int>(std::pow(2, static_cast<double>(numByteOffsetBits)));
 	std::cout << "offset = " << address % offset << std::endl;
 
-	ai.setIndex = (address % offset) % (static_cast<unsigned long int>(std::pow(2, static_cast<double>(numIndexBits))));
+	ai.setIndex = (address / offset) % (static_cast<unsigned long int>(std::pow(2, static_cast<double>(numIndexBits))));
 	std::cout << "index = " << ai.setIndex << std::endl;
 	return ai;
 }
 
-void CacheController::cacheAccess(CacheResponse* response, bool isWrite, unsigned long int address)
+void CacheController::cacheAccess(CacheResponse* response, bool isWrite, unsigned long int address, 
+											std::mutex& mutex, std::condition_variable& convar, bus& Bus)
 {
 	AddressInfo ai = getAddressInfo(address);
 
 	// Check if the instruction is a read or write instruction
 	if(isWrite)
-		writeOnCache(ai.setIndex, ai.tag, cache.at(ai.setIndex), response, config);
+		writeOnCache(ai.setIndex, ai.tag, cache.at(ai.setIndex), response, config, mutex, convar, Bus, threadId, fp);
 	else
-		readFromCache(ai.setIndex, ai.tag, cache.at(ai.setIndex), response, config);
+		readFromCache(ai.setIndex, ai.tag, cache.at(ai.setIndex), response, config, mutex, convar, Bus, threadId, fp);
 	
 	globalCycles += response -> cycles;
 	
@@ -121,7 +153,7 @@ void CacheController::cacheAccess(CacheResponse* response, bool isWrite, unsigne
 /*
 	Starts reading the tracefile and processing memory operations.
 */
-void CacheController::runTracefile() 
+void CacheController::runTracefile(std::mutex& mutex, std::condition_variable& convar, bus& Bus) 
 {
 	std::cout << "Input tracefile: " << inputFile << std::endl;
 	std::cout << "Output file name: " << outputFile << std::endl;
@@ -157,14 +189,14 @@ void CacheController::runTracefile()
 			std::istringstream hexStream(match.str(2));
 			hexStream >> std::hex >> address;
 			outfile << match.str(1) << match.str(2) << match.str(3);
-			cacheAccess(&response, false, address);
+			cacheAccess(&response, false, address, mutex, convar, Bus);
 			outfile << " " << response.cycles << (response.hit ? " hit" : " miss") << (response.eviction ? " eviction" : "");
 		} else if (std::regex_match(line, match, storePattern)) {
 			std::cout << "Found a store op!" << std::endl;
 			std::istringstream hexStream(match.str(2));
 			hexStream >> std::hex >> address;
 			outfile << match.str(1) << match.str(2) << match.str(3);
-			cacheAccess(&response, true, address);
+			cacheAccess(&response, true, address, mutex, convar, Bus);
 			outfile << " " << response.cycles << (response.hit ? " hit" : " miss") << (response.eviction ? " eviction" : "");
 		} else if (std::regex_match(line, match, modifyPattern)) {
 			std::cout << "Found a modify op!" << std::endl;
@@ -172,13 +204,13 @@ void CacheController::runTracefile()
 			hexStream >> std::hex >> address;
 			outfile << match.str(1) << match.str(2) << match.str(3);
 			// first process the read operation
-			cacheAccess(&response, false, address);
+			cacheAccess(&response, false, address, mutex, convar, Bus);
 			std::string tmpString; // will be used during the file output
 			tmpString.append(response.hit ? " hit" : " miss");
 			tmpString.append(response.eviction ? " eviction" : "");
 			unsigned long int totalCycles = response.cycles; // track the number of cycles used for both stages of the modify operation
 			// now process the write operation
-			cacheAccess(&response, true, address);
+			cacheAccess(&response, true, address, mutex, convar, Bus);
 			tmpString.append(response.hit ? " hit" : " miss");
 			tmpString.append(response.eviction ? " eviction" : "");
 			totalCycles += response.cycles;
@@ -190,18 +222,18 @@ void CacheController::runTracefile()
 	}
 
 	// Print Cache to see changes in the cache.
-	std::cout << "Cache consists of " << cache.size() << " sets\n";
+	std::cout << "Cache consists of " << cache.size() << " indicies\n";
 	int i = 0;
     for(auto itr = cache.begin(); itr != cache.end(); itr++)
     {   
-        std::cout << "Index:\tV  D  Tag\tV  D  Tag\tV  D  Tag\t" << std::endl;
+        std::cout << "Index:\tV  D  S  Tag\tV  D  S  Tag\tV  D  S  Tag\t" << std::endl;
         int set = 1;
 		std::cout << i << "\t";
        
 	    for(auto i = itr -> begin(); i != itr -> end(); i++)
         {
-            std::cout << i -> first.first << "  " 
-                      << i -> first.second << "  " << i -> second << "\t\t";
+            std::cout << i -> first.first.first << "  " 
+                      << i -> first.first.second << "  " << i -> first.second << "  " << i -> second << "\t";
             set++;
         }
         i++;
