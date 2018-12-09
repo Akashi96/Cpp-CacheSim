@@ -46,7 +46,7 @@ class CacheController
         std::vector <std::vector <cacheEntry> > cache;
 		ConfigInfo config;
 		typedef std::function <void(unsigned int, unsigned long int, std::string)> funcPointer;
-		funcPointer fp;
+		// funcPointer fp;
 
 		// function to allow read or write access to the cache
 		void cacheAccess(CacheResponse*, bool, unsigned long int, std::mutex&, std::condition_variable&, bus&);

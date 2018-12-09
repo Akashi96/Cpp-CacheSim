@@ -18,7 +18,7 @@
 
 void bus::putMsg_onBus(std::string address, std::string message, funcPointer sendResponse, int threadId)
 {
-    std::cout << "Hello, In putMsg_onBus\n";
+    //std::cout << "Hello, In putMsg_onBus\n";
     
     if(this -> bus.find(address) != this -> bus.end())
     {// If the address is already present in  the bus, send the message to the function pointers of cache controllers present in the value vector
@@ -67,6 +67,18 @@ void bus::putMsg_onBus(std::string address, std::string message, funcPointer sen
                 }
                 
             }
+
+			if (element -> second.size() == 1)
+			{	
+				// convert the string key: "index|tag" to unsigned int index and unsigned long int tag
+				int pos = address.find("|");
+				unsigned int index = std::stoi(address.substr(0, pos - 0));
+				unsigned long int tag = std::stoi(address.substr(pos + 1, address.length() - pos - 1));
+				// std::cout << "index: " << index << "tag: " << tag << std::endl;
+				auto itr = element->second.begin();
+				funcPointer fp = itr -> first;
+				fp(index, tag, "notSharedAnymore");
+			}
             return;
         }
         
@@ -112,11 +124,11 @@ void bus::putMsg_onBus(std::string address, std::string message, funcPointer sen
     
     else
     {   
-        std::cout << "Adding fp to map\n";
+        //std::cout << "Adding fp to map\n";
         std::vector <std::pair <funcPointer, int> > vec;
         vec.push_back(std::make_pair(sendResponse, threadId));
         this -> bus[address] = vec;
-        std::cout << "Added\n";
+        //std::cout << "Added\n";
     }
     
 }

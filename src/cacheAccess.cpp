@@ -20,9 +20,9 @@
 void accessBus(unsigned int indexNo, unsigned long int tag, std::mutex &mutex, std::condition_variable& convar,
                  bus &Bus, std::string message, int threadId, funcPointer fp)
 {   
-    std::cout << "Thread: " << threadId << "-Waiting for the bus to access memory\n";
+    //std::cout << "Thread: " << threadId << "-Waiting for the bus to access memory\n";
     std::lock_guard<std::mutex> lock(mutex);
-    std::cout << "Thread: " << threadId << "-Acquired the bus\n";
+    //std::cout << "Thread: " << threadId << "-Acquired the bus\n";
     // std::this_thread::sleep_for(std::chrono::seconds(30));
     std::string address = std::to_string(indexNo) + "|" + std::to_string(tag);
     Bus.putMsg_onBus(address, message, fp, threadId);
@@ -31,7 +31,7 @@ void accessBus(unsigned int indexNo, unsigned long int tag, std::mutex &mutex, s
 void writeOnCache(unsigned int indexNo, unsigned long int tag, std::vector <cacheEntry>& cacheSet, CacheResponse* response,
                     ConfigInfo config, std::mutex &mutex, std::condition_variable &convar, bus &Bus, int threadId, funcPointer fp)
 {
-    std::cout << "The instruction requires write on cache\n";
+    //std::cout << "The instruction requires write on cache\n";
     int flag = -1; // This will keep check whether the value has been written in the cache or not
     unsigned int numberOfCycles = 0;
     
@@ -49,11 +49,11 @@ void writeOnCache(unsigned int indexNo, unsigned long int tag, std::vector <cach
             response -> hit = 0;
             response -> eviction = 0;
             response -> dirtyEviction = 0;
-            std::cout << "Hit: " << response -> hit << "\n"
+           /* std::cout << "Hit: " << response -> hit << "\n"
                       << "Eviction: " << response -> eviction << "\n"
-                      << "Dirty Eviction: " << response -> dirtyEviction << "\n";
+                      << "Dirty Eviction: " << response -> dirtyEviction << "\n";*/
             // Since this requires memory access, try to acquire the bus first
-            std::cout << "writeoncache calling\n";
+            //std::cout << "writeoncache calling\n";
             accessBus(indexNo, tag, mutex, convar, Bus, "write", threadId, fp);
             itr -> first.first.first = 1;
             flag = 0;
@@ -86,9 +86,9 @@ void writeOnCache(unsigned int indexNo, unsigned long int tag, std::vector <cach
             response -> hit = 1;
             response -> eviction = 0;
             response -> dirtyEviction = 0;
-            std::cout << "Hit: " << response -> hit << "\n"
+            /*std::cout << "Hit: " << response -> hit << "\n"
                       << "Eviction: " << response -> eviction << "\n"
-                      << "Dirty Eviction: " << response -> dirtyEviction << "\n";
+                      << "Dirty Eviction: " << response -> dirtyEviction << "\n";*/
             
             if(itr -> first.second == 1)
             {   // Shared bit is not 0, which means the data is being shared by other caches, Go and invalidate it
@@ -122,6 +122,7 @@ void writeOnCache(unsigned int indexNo, unsigned long int tag, std::vector <cach
     {// Nothing matched, we need to perform eviction
         response -> hit = 0;
         response -> eviction = 1;
+		
         // Since this requires memory access, try to acquire the bus first
         accessBus(indexNo, tag, mutex, convar, Bus, "write", threadId, fp);
 
@@ -176,13 +177,13 @@ void writeOnCache(unsigned int indexNo, unsigned long int tag, std::vector <cach
             else
                 block.first.first.second = 1;
             cacheSet.emplace(cacheSet.begin(), block);
-            std::cout << "Hit: " << response -> hit << "\n"
+            /*std::cout << "Hit: " << response -> hit << "\n"
                       << "Eviction: " << response -> eviction << "\n"
-                      << "Dirty Eviction: " << response -> dirtyEviction << "\n";
+                      << "Dirty Eviction: " << response -> dirtyEviction << "\n";*/
         }
     }
     response -> cycles = numberOfCycles;
-    std::cout << "Number of Cycles: " << response -> cycles << "\n\n";
+    //std::cout << "Number of Cycles: " << response -> cycles << "\n\n";
 
 
 }
@@ -190,7 +191,7 @@ void writeOnCache(unsigned int indexNo, unsigned long int tag, std::vector <cach
 void readFromCache(unsigned int indexNo, unsigned long int tag, std::vector <cacheEntry>& cacheSet, CacheResponse* response, ConfigInfo config, 
                      std::mutex &mutex, std::condition_variable &convar, bus &Bus, int threadId, funcPointer fp)
 {
-    std::cout << "The instruction requires read from cache\n";
+    //std::cout << "The instruction requires read from cache\n";
     unsigned int numberOfCycles = 0;
     int flag = -1;
     
@@ -208,9 +209,9 @@ void readFromCache(unsigned int indexNo, unsigned long int tag, std::vector <cac
             response -> eviction = 0;
             response -> dirtyEviction = 0;
             flag = 0;
-            std::cout << "Hit: " << response -> hit << "\n"
+            /*std::cout << "Hit: " << response -> hit << "\n"
                       << "Eviction: " << response -> eviction << "\n"
-                      << "Dirty Eviction: " << response -> dirtyEviction << "\n";
+                      << "Dirty Eviction: " << response -> dirtyEviction << "\n";*/
             itr -> first.first.first = 1;
             itr -> second = tag;
             // Since this requires memory access, try to acquire the bus first
@@ -233,9 +234,9 @@ void readFromCache(unsigned int indexNo, unsigned long int tag, std::vector <cac
             response -> hit = 1;
             response -> eviction = 0;
             response -> dirtyEviction = 0;
-            std::cout << "Hit: " << response -> hit << "\n"
+           /* std::cout << "Hit: " << response -> hit << "\n"
                       << "Eviction: " << response -> eviction << "\n"
-                      << "Dirty Eviction: " << response -> dirtyEviction << "\n";
+                      << "Dirty Eviction: " << response -> dirtyEviction << "\n";*/
             flag = 0;
             
             if (config.replacementPolicy == ReplacementPolicy::LRU) 
@@ -253,7 +254,7 @@ void readFromCache(unsigned int indexNo, unsigned long int tag, std::vector <cac
             response -> hit = 0;
             response -> eviction = 1;
             // Since this requires memory access, try to acquire the bus first
-            std::cout << "readoncache calling\n";
+            //std::cout << "readoncache calling\n";
             accessBus(indexNo, tag, mutex, convar, Bus, "read", threadId, fp);
 
             if(config.replacementPolicy == ReplacementPolicy::Random)
@@ -261,29 +262,47 @@ void readFromCache(unsigned int indexNo, unsigned long int tag, std::vector <cac
                 auto itr = cacheSet.begin();
                 std::advance(itr, (rand() % (config.associativity - 1) + 0));
                 numberOfCycles += config.memoryAccessCycles;
+				if (config.writePolicy == WritePolicy::WriteBack)
+				{
+					if (itr->first.first.second == 1)
+					{
+						response->dirtyEviction = 1;
+						numberOfCycles += config.memoryAccessCycles;
+					}
+				}
                 cacheSet.erase(itr);
                 cacheEntry block;
                 block.first.first.first = 1;
                 block.first.first.second = 0;
                 block.second = tag;
                 cacheSet.emplace(itr, block);
+				
             }
 
             else // If replacement policy is LRU
             {   
                 auto itr = std::prev(cacheSet.end());
                 numberOfCycles += config.memoryAccessCycles;
+				if (config.writePolicy == WritePolicy::WriteBack)
+				{
+					if (itr->first.first.second == 1)
+					{
+						response->dirtyEviction = 1;
+						numberOfCycles += config.memoryAccessCycles;
+					}
+				}
                 cacheSet.erase(itr);
                 cacheEntry block;
                 block.first.first.first = 1;
                 block.first.first.second = 0;
                 block.second = tag;
                 cacheSet.emplace(cacheSet.begin(), block);
+				
             }
-            std::cout << "Hit: " << response -> hit << "\n"
+           /* std::cout << "Hit: " << response -> hit << "\n"
                       << "Eviction: " << response -> eviction << "\n"
-                      << "Dirty Eviction: " << response -> dirtyEviction << "\n";
+                      << "Dirty Eviction: " << response -> dirtyEviction << "\n";*/
         }
     response -> cycles = numberOfCycles;
-    std::cout << "Number of Cycles: " << response -> cycles << "\n\n";
+    //std::cout << "Number of Cycles: " << response -> cycles << "\n\n";
 }

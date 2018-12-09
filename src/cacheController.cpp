@@ -40,8 +40,8 @@ CacheController::CacheController(ConfigInfo config, char* traceFile, int threadI
 	this -> threadId = threadId;
 
 	// form a function pointer to onBusresponse()
-	funcPointer fp = std::bind(&CacheController::onBusresponse, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
-	this -> fp = fp;
+	// funcPointer fp = std::bind(&CacheController::onBusresponse, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+	// this -> fp = fp;
 
     // Create Cache
     std::vector <std::vector <cacheEntry> > cache;
@@ -55,29 +55,29 @@ CacheController::CacheController(ConfigInfo config, char* traceFile, int threadI
     this -> cache = cache;
     
     // Print Cache
-    std::cout << "Cache Created\n";
-    std::cout << "Cache consists of " << cache.size() << " indicies\n";
-	int i = 0;
-    for(auto itr = cache.begin(); itr != cache.end(); itr++)
-    {   
-        std::cout << "Index:\tV  D  S  Tag\tV  D  S  Tag\tV  D  S  Tag\t" << std::endl;
-        int set = 1;
-        // std::cout << "Set\t" << "V " << "D " << "Tag \n";
-		std::cout << i << "\t";
-        for(auto i = itr -> begin(); i != itr -> end(); i++)
-        {
-            std::cout << i -> first.first.first << "  " 
-                      << i -> first.first.second << "  " << i -> first.second << "  " << i -> second << "\t";
-            set++;
-        }
-        i++;
-		std::cout << "\n\n";
-    }
+ //   std::cout << "Cache Created\n";
+ //   std::cout << "Cache consists of " << cache.size() << " indicies\n";
+ //	  int i = 0;
+ //   for(auto itr = cache.begin(); itr != cache.end(); itr++)
+ //   {   
+ //       std::cout << "Index:\tV  D  S  Tag\tV  D  S  Tag\tV  D  S  Tag\t" << std::endl;
+ //       int set = 1;
+ //       // std::cout << "Set\t" << "V " << "D " << "Tag \n";
+	//	std::cout << i << "\t";
+ //       for(auto i = itr -> begin(); i != itr -> end(); i++)
+ //       {
+ //           std::cout << i -> first.first.first << "  " 
+ //                     << i -> first.first.second << "  " << i -> first.second << "  " << i -> second << "\t";
+ //           set++;
+ //       }
+ //       i++;
+	//	std::cout << "\n\n";
+    //}
 }
 
 void CacheController::onBusresponse(unsigned int index, unsigned long int tag, std::string message)
 {
-	std::cout << "In onBusresponse()\n";
+	//std::cout << "In onBusresponse()\n";
 	
 	auto cacheSet = cache.at(index);
 	if(message == "read")
@@ -108,6 +108,18 @@ void CacheController::onBusresponse(unsigned int index, unsigned long int tag, s
 			}
 		}
 	}
+	if (message == "notSharedAnymore")
+	{
+		for (auto itr = cacheSet.begin(); itr != cacheSet.end(); itr++)
+		{
+			if (itr->second == tag && itr->first.first.first == 1)
+			{
+				itr->first.second = 0;
+				break;
+			}
+		}
+		return;
+	}
 	
 }
 
@@ -115,16 +127,16 @@ CacheController::AddressInfo CacheController::getAddressInfo(unsigned long int a
 {	
 	AddressInfo ai;
 	
-	std::cout << "address = " << address << std::endl;
+	//std::cout << "address = " << address << std::endl;
 
 	ai.tag = address >> (numByteOffsetBits + numIndexBits);
-	std::cout << "tag = " << ai.tag << std::endl;
+	//std::cout << "tag = " << ai.tag << std::endl;
 	
 	unsigned long int offset = static_cast<unsigned long int>(std::pow(2, static_cast<double>(numByteOffsetBits)));
-	std::cout << "offset = " << address % offset << std::endl;
+	//std::cout << "offset = " << address % offset << std::endl;
 
 	ai.setIndex = (address / offset) % (static_cast<unsigned long int>(std::pow(2, static_cast<double>(numIndexBits))));
-	std::cout << "index = " << ai.setIndex << std::endl;
+	//std::cout << "index = " << ai.setIndex << std::endl;
 	return ai;
 }
 
@@ -132,7 +144,7 @@ void CacheController::cacheAccess(CacheResponse* response, bool isWrite, unsigne
 											std::mutex& mutex, std::condition_variable& convar, bus& Bus)
 {
 	AddressInfo ai = getAddressInfo(address);
-
+	funcPointer fp = std::bind(&CacheController::onBusresponse, *this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 	// Check if the instruction is a read or write instruction
 	if(isWrite)
 		writeOnCache(ai.setIndex, ai.tag, cache.at(ai.setIndex), response, config, mutex, convar, Bus, threadId, fp);
@@ -155,8 +167,8 @@ void CacheController::cacheAccess(CacheResponse* response, bool isWrite, unsigne
 */
 void CacheController::runTracefile(std::mutex& mutex, std::condition_variable& convar, bus& Bus) 
 {
-	std::cout << "Input tracefile: " << inputFile << std::endl;
-	std::cout << "Output file name: " << outputFile << std::endl;
+	/*std::cout << "Input tracefile: " << inputFile << std::endl;
+	std::cout << "Output file name: " << outputFile << std::endl;*/
 	
 	// process each input line
 	std::string line;
@@ -172,6 +184,7 @@ void CacheController::runTracefile(std::mutex& mutex, std::condition_variable& c
 	// open the output file
 	std::ifstream infile(inputFile);
 	// parse each line of the file and look for commands
+	//unsigned long int i = 0;
 	while (getline(infile, line)) {
 		// these strings will be used in the file output
 		std::string opString, activityString;
@@ -179,27 +192,27 @@ void CacheController::runTracefile(std::mutex& mutex, std::condition_variable& c
 		unsigned long int address;
 		// create a struct to track cache responses
 		CacheResponse response;
-
+		std::cout << ".\n";
 		// ignore comments
 		if (std::regex_match(line, commentPattern) || std::regex_match(line, instructionPattern)) {
 			// skip over comments and CPU instructions
 			continue;
 		} else if (std::regex_match(line, match, loadPattern)) {
-			std::cout << "Found a load op!" << std::endl;
+			//std::cout << "Found a load op!" << std::endl;
 			std::istringstream hexStream(match.str(2));
 			hexStream >> std::hex >> address;
 			outfile << match.str(1) << match.str(2) << match.str(3);
 			cacheAccess(&response, false, address, mutex, convar, Bus);
 			outfile << " " << response.cycles << (response.hit ? " hit" : " miss") << (response.eviction ? " eviction" : "");
 		} else if (std::regex_match(line, match, storePattern)) {
-			std::cout << "Found a store op!" << std::endl;
+			//std::cout << "Found a store op!" << std::endl;
 			std::istringstream hexStream(match.str(2));
 			hexStream >> std::hex >> address;
 			outfile << match.str(1) << match.str(2) << match.str(3);
 			cacheAccess(&response, true, address, mutex, convar, Bus);
 			outfile << " " << response.cycles << (response.hit ? " hit" : " miss") << (response.eviction ? " eviction" : "");
 		} else if (std::regex_match(line, match, modifyPattern)) {
-			std::cout << "Found a modify op!" << std::endl;
+			//std::cout << "Found a modify op!" << std::endl;
 			std::istringstream hexStream(match.str(2));
 			hexStream >> std::hex >> address;
 			outfile << match.str(1) << match.str(2) << match.str(3);
@@ -219,11 +232,12 @@ void CacheController::runTracefile(std::mutex& mutex, std::condition_variable& c
 			throw std::runtime_error("Encountered unknown line format in tracefile.");
 		}
 		outfile << std::endl;
+		//i++;
 	}
 
 	// Print Cache to see changes in the cache.
-	std::cout << "Cache consists of " << cache.size() << " indicies\n";
-	int i = 0;
+	//std::cout << "Cache consists of " << cache.size() << " indicies\n";
+	/*int i = 0;
     for(auto itr = cache.begin(); itr != cache.end(); itr++)
     {   
         std::cout << "Index:\tV  D  S  Tag\tV  D  S  Tag\tV  D  S  Tag\t" << std::endl;
@@ -238,7 +252,7 @@ void CacheController::runTracefile(std::mutex& mutex, std::condition_variable& c
         }
         i++;
 		std::cout << "\n\n";
-    }
+    }*/
 	// add the final cache statistics
 	outfile << "Hits: " << globalHits << " Misses: " << globalMisses << " Evictions: " << globalEvictions << std::endl;
 	outfile << "Cycles: " << globalCycles << std::endl;

@@ -17,7 +17,7 @@
 
 void initializeCache(ConfigInfo config, char* traceFile, int threadId, std::mutex &mutex, std::condition_variable &convar, bus &Bus)
 {   
-    std::cout << "Thread " << threadId << ": Initializing cache\n";
+    //std::cout << "Thread " << threadId << ": Initializing cache\n";
     CacheController cache = CacheController(config, traceFile, threadId);
     cache.runTracefile(mutex, convar, Bus);
 }
